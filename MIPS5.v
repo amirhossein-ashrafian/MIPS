@@ -9,6 +9,8 @@
 `include "Comparator.v"
 `include "signExtend.v"
 `include "ShiftLeft2.v"
+`include "MUX_3x1_32.v"
+
 module MIPS5 (
     input wire clk, reset
 );
@@ -55,7 +57,6 @@ IF_ID_Register (
 
 // ID stage
 wire [31:0] RegData1, RegData2;
-wire [4:0] writeadr;
 wire RegWrite, MemRead, MemWrite, ALUSrc, RegDst, MemtoReg, Branch, Jump;
 
 
@@ -170,6 +171,7 @@ ID_EX_Register (
 );
 
 // EX stage 
+wire [4:0] writeadr;
 MUX_2x1_5 register_destination(
     .input0(ID_EX_Rt),
     .input1(ID_EX_Rd),
@@ -183,50 +185,46 @@ MUX_2x1_32 alu_src(
     .sel(ID_EX_ALUSrc),
     .result(rt_or_signExtended)
 );
-
+wire [31:0] inputA , inputB ;
+MUX_3x1_32 A(
+    .maininput(),
+    .fw1(),
+    .fw2(),
+    .sel(ForwardA),
+    .result(inputA)
+);
+MUX_3x1_32 B(
+    .maininput(),
+    .fw1(),
+    .fw2(),
+    .sel(ForwardB),
+    .result(inputB)
+);
 // ALU Control
 wire [3:0] ALUControl;
 ALUController alu_control (
-    .ALUOp(ALUOp),
-    .FunctionCode(IF_ID_Instruction[5:0]),
+    .ALUOp(ID_EX_ALUOp),
+    .FunctionCode(ID_EX_func),
     .ALUControl(ALUControl)
 );
 
 // Forwarding Unit
 wire [1:0] ForwardA, ForwardB;
 ForwardingUnit forwarding_unit (
-    .ID_EX_Rs(IF_ID_Instruction[25:21]),
-    .ID_EX_Rt(IF_ID_Instruction[20:16]),
+    .ID_EX_Rs(ID_EX_Rs),
+    .ID_EX_Rt(ID_EX_Rs),
     .EX_MEM_Rd(EX_MEM_Rd),
     .MEM_WB_Rd(MEM_WB_Rd),
-    .ID_EX_RegWrite(RegWrite),
+    .ID_EX_RegWrite(ID_EX_RegWrite),
     .EX_MEM_RegWrite(EX_MEM_RegWrite),
     .MEM_WB_RegWrite(MEM_WB_RegWrite),
     .ForwardA(ForwardA),
     .ForwardB(ForwardB)
 );
-
-// EX stage
-wire [31:0] ALUInputA, ALUInputB, ALUResult;
-ALU_InputA_Mux alu_input_a_mux (
-    .Rs(RegData1),
-    .EX_MEM_ALUResult(EX_MEM_ALUResult),
-    .MEM_WB_ALUResult(MEM_WB_ALUResult),
-    .ForwardA(ForwardA),
-    .ALUInputA(ALUInputA)
-);
-
-ALU_InputB_Mux alu_input_b_mux (
-    .Rt(RegData2),
-    .EX_MEM_ALUResult(EX_MEM_ALUResult),
-    .MEM_WB_ALUResult(MEM_WB_ALUResult),
-    .ForwardB(ForwardB),
-    .ALUInputB(ALUInputB)
-);
-
+wire [31:0] ALUResult ; 
 ALU alu (
-    .A(ALUInputA),
-    .B(ALUInputB),
+    .A(inputA),
+    .B(inputB),
     .ALUControl(ALUControl),
     .Result(ALUResult),
     .Zero(Zero),
@@ -234,18 +232,27 @@ ALU alu (
 );
 
 // EX/MEM Register
-wire [31:0] EX_MEM_ALUResult, EX_MEM_ReadData2;
+wire [31:0] EX_MEM_ALUResult ,EX_MEM_RD2 ;
+wire [4:0] EX_MEM_Rd ; 
+wire EX_MEM_MemRead , EX_MEM_MemWrite , EX_MEM_MemtoReg , EX_MEM_RegWrite ; 
 EX_MEM_Register EX_MEM_reg (
     .clk(clk),
     .reset(reset),
+    .MemRead(ID_EX_MemRead),
+    .MemWrite(ID_EX_MemWrite),
+    .MemtoReg(ID_EX_MemtoReg),
+    .RegWrite(ID_EX_RegWrite),
     .ALUResult(ALUResult),
-    .ReadData2(RegData2),
-    .RegWrite(RegWrite),
-    .MemRead(MemRead),
-    .MemWrite(MemWrite),
-    .MemtoReg(MemtoReg),
-    .EX_MEM_ALUResult(EX_MEM_ALUResult),
-    .EX_MEM_ReadData2(EX_MEM_ReadData2)
+    .RD2(ID_EX_RD2),
+    .Rd(writeadr),
+
+    .MemRead_out(EX_MEM_MemRead),
+    .MemWrite_out(EX_MEM_MemWrite),
+    .MemtoReg_out(EX_MEM_MemtoReg),
+    .RegWrite_out(EX_MEM_RegWrite),
+    .ALUResult_out(EX_MEM_ALUResult),
+    .RD2_out(EX_MEM_RD2),
+    .Rd_out(EX_MEM_Rd),
 );
 
 // MEM stage
@@ -253,41 +260,49 @@ wire [31:0] DataMemoryOutput;
 DataMemory data_memory (
     .clk(clk),
     .address(EX_MEM_ALUResult),
-    .write_data(EX_MEM_ReadData2),
-    .MemRead(MemRead),
-    .MemWrite(MemWrite),
+    .write_data(EX_MEM_RD2),
+    .MemRead(EX_MEM_MemRead),
+    .MemWrite(EX_MEM_MemWrite),
     .read_data(DataMemoryOutput)
 );
 
 // MEM/WB Register
-wire [31:0] MEM_WB_ALUResult, MEM_WB_DataMemoryOutput;
-MEM_WB_Register MEM_WB_reg (
+wire [4:0]  MEM_WriteReg;   // آدرس رجیستر مقصد در مرحله MEM
+
+// سیگنالهای ورودی به مرحله WB
+wire        MEM_WB_RegWrite;    // به واحد کنترل در WB
+wire        MEM_WB_MemtoReg;    // به واحد کنترل در WB
+wire [31:0] MEM_WB_ALUResult;   // به فایل رجیستر در WB
+wire [31:0] MEM_WB_ReadData;    // به فایل رجیستر در WB
+wire [4:0]  MEM_WB_WriteReg;    // به فایل رجیستر در WB
+
+// --- نمونهسازی MEM_WB_Register ---
+MEM_WB_Register mem_wb_reg (
+    // پورتهای ورودی (از مرحله MEM)
     .clk(clk),
     .reset(reset),
+    .RegWrite(EX_MEM_RegWrite),
+    .MemtoReg(EX_MEM_MemtoReg),
     .ALUResult(EX_MEM_ALUResult),
-    .DataMemoryOutput(DataMemoryOutput),
-    .RegWrite(RegWrite),
-    .MemtoReg(MemtoReg),
-    .MEM_WB_ALUResult(MEM_WB_ALUResult),
-    .MEM_WB_DataMemoryOutput(MEM_WB_DataMemoryOutput)
+    .ReadData(DataMemoryOutput),
+    .Rd(EX_MEM_Rd),
+    
+    // پورتهای خروجی (به مرحله WB)
+    .RegWrite_out(MEM_WB_RegWrite),
+    .MemtoReg_out(MEM_WB_MemtoReg),
+    .ALUResult_out(MEM_WB_ALUResult),
+    .ReadData_out(MEM_WB_ReadData),
+    .Rd_out(MEM_WB_WriteReg)
 );
+
 
 // WB stage
 wire [31:0] WriteData;
-Mux2to1 mux2to1 (
+MUX_2x1_32 mux2to1 (
     .A(MEM_WB_ALUResult),
-    .B(MEM_WB_DataMemoryOutput),
-    .Sel(MemtoReg),
+    .B(MEM_WB_ReadData),
+    .Sel(MEM_WB_MemtoReg)
     .Out(WriteData)
-);
-
-// Final Write Back
-RegisterFile_WriteBack register_write_back (
-    .clk(clk),
-    .reset(reset),
-    .RegWrite(RegWrite),
-    .WriteData(WriteData),
-    .WriteReg(MEM_WB_Rd)
 );
 
 endmodule

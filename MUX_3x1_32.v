@@ -14,11 +14,11 @@ always @(maininput , fw1 ,fw2 , sel)begin
     end
     2'b01:
     begin
-        result <= fw1 ;
+        result <= fw2 ;
     end
     2'b10:
     begin
-        result <= fw2 ; 
+        result <= fw1 ; 
     end
     default: // invalid !!
     begin
