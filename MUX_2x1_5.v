@@ -1,4 +1,4 @@
-module MUX_2x1_32(
+module MUX_2x1_5(
     input wire [4:0] input0 ,
     input wire [4:0] input1 , 
     input wire sel ,

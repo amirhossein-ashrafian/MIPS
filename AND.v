@@ -1,7 +1,7 @@
 module AND(
-    input a,
-    input b,
-    output result
+    input wire a,
+    input wire b,
+    output wire result
 );
-result = and(result , a, b) ; 
+assign result = a & b;
 endmodule

@@ -1,4 +1,4 @@
-module ControlUnit (
+module Controller (
     input wire [5:0] opcode,     // Opcode از دستورالعمل
     output reg RegDst, ALUSrc, MemtoReg, RegWrite, MemRead, MemWrite, Branch,
     output reg [1:0] ALUOp       // سیگنال کنترلی برای ALU

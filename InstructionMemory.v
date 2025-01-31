@@ -10,7 +10,8 @@ module InstructionMemory (
     end
 
     always @(posedge clk) begin
-        instruction <= mem[PC]; 
-    end
+    instruction <= mem[PC[31:2]];
+end
+
 
 endmodule

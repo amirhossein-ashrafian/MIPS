@@ -15,7 +15,7 @@
 `include "ID_EX_Reg.v"
 `include "MUX_2x1_5.v"
 `include "MUX_3x1_32.v"
-`include "ALUController.v"
+`include "ALUControl.v"
 `include "ForwardingUnit.v"
 `include "ALU.v"
 `include "EX_MEM_Reg.v"
@@ -40,7 +40,7 @@ InstructionMemory (
     .instruction(Instruction)
 );
 PCAdder (
-    .PC_in(pc),
+    .PC_in(PC),
     .PC_out(PC_Plus4)
 );
 MUX_2x1_32(
@@ -88,7 +88,7 @@ Controller(
     .RegWrite(control_signals[4]),
     .MemRead(control_signals[3]),
     .MemWrite(control_signals[2]),
-    .Branch(Branch)
+    .Branch(Branch),
     .ALUOp(control_signals[1:0])
 );
 wire equal ; 
@@ -106,7 +106,7 @@ AND Branch_result(
 
 wire [31:0] signExtended
 signExtend (
-    .in(Instruction[15:0])
+    .in(Instruction[15:0]),
     .out(signExtended)
 );
 wire [31:0] signExtended_shiftleft2
@@ -128,15 +128,15 @@ HazardDetectionUnit hazard_detection (
     .ID_EX_Rt(ID_EX_Rt),
     .IF_ID_Rs(Instruction[25:21]),
     .IF_ID_Rt(Instruction[20:16]),
-    .PC_stall(PC_stall)
-    .IF_ID_stall(IF_ID_stall)
+    .PC_stall(PC_stall),
+    .IF_ID_stall(IF_ID_stall),
     .ControlMux(ControlMux)
 );
 wire [7:0] ControlMuxToRegister ; 
 ControlMux(
     .stall(ControlMux),
     .control_in(control_signals),
-    .control_out(ControlMuxToRegister),
+    .control_out(ControlMuxToRegister)
 );
 wire ID_EX_RegDst, ID_EX_MemRead ,ID_EX_ALUSrc,ID_EX_MemWrite , ID_EX_MemToReg , ID_EX_RegWrite;
 wire [4:0] ID_EX_Rt,ID_EX_Rs,ID_EX_Rd;
@@ -209,7 +209,7 @@ MUX_3x1_32 B(
 );
 // ALU Control
 wire [3:0] ALUControl;
-ALUController alu_control (
+ALUControl alu_control (
     .ALUOp(ID_EX_ALUOp),
     .FunctionCode(ID_EX_func),
     .ALUControl(ALUControl)
@@ -219,7 +219,7 @@ ALUController alu_control (
 wire [1:0] ForwardA, ForwardB;
 ForwardingUnit forwarding_unit (
     .ID_EX_Rs(ID_EX_Rs),
-    .ID_EX_Rt(ID_EX_Rs),
+    .ID_EX_Rt(ID_EX_Rt),
     .EX_MEM_Rd(EX_MEM_Rd),
     .MEM_WB_Rd(MEM_WB_Rd),
     .ID_EX_RegWrite(ID_EX_RegWrite),
@@ -301,7 +301,7 @@ wire [31:0] WriteData;
 MUX_2x1_32 mux2to1 (
     .A(MEM_WB_ALUResult),
     .B(MEM_WB_ReadData),
-    .Sel(MEM_WB_MemtoReg)
+    .Sel(MEM_WB_MemtoReg),
     .Out(WriteData)
 );
 endmodule

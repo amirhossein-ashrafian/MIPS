@@ -5,21 +5,22 @@ module ForwardingUnit (
 );
 
     always @(*) begin
-        // ForwardA
-        if (ID_EX_RegWrite && (ID_EX_Rs != 0) && (ID_EX_Rs == EX_MEM_Rd)) 
-            ForwardA = 2'b10; // Forward from EX/MEM
-        else if (ID_EX_RegWrite && (ID_EX_Rs != 0) && (ID_EX_Rs == MEM_WB_Rd)) 
-            ForwardA = 2'b01; // Forward from MEM/WB
-        else 
-            ForwardA = 2'b00; // No forwarding
-        
-        // ForwardB
-        if (ID_EX_RegWrite && (ID_EX_Rt != 0) && (ID_EX_Rt == EX_MEM_Rd)) 
-            ForwardB = 2'b10; // Forward from EX/MEM
-        else if (ID_EX_RegWrite && (ID_EX_Rt != 0) && (ID_EX_Rt == MEM_WB_Rd)) 
-            ForwardB = 2'b01; // Forward from MEM/WB
-        else 
-            ForwardB = 2'b00; // No forwarding
+        // برای ForwardA:
+if (EX_MEM_RegWrite && (ID_EX_Rs != 0) && (ID_EX_Rs == EX_MEM_Rd))
+    ForwardA = 2'b10;
+else if (MEM_WB_RegWrite && (ID_EX_Rs != 0) && (ID_EX_Rs == MEM_WB_Rd))
+    ForwardA = 2'b01;
+else 
+    ForwardA = 2'b00;
+
+// برای ForwardB:
+if (EX_MEM_RegWrite && (ID_EX_Rt != 0) && (ID_EX_Rt == EX_MEM_Rd))
+    ForwardB = 2'b10;
+else if (MEM_WB_RegWrite && (ID_EX_Rt != 0) && (ID_EX_Rt == MEM_WB_Rd))
+    ForwardB = 2'b01;
+else 
+    ForwardB = 2'b00;
+
     end
 
 endmodule
