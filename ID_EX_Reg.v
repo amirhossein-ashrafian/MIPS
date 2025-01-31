@@ -1,5 +1,5 @@
 module ID_EX_Register (
-    input wire clk, reset, // کلاک و ریست
+    input wire clk, reset,
     input wire RegDst, ALUSrc, MemRead, MemWrite, MemToReg, RegWrite,
     input wire [1:0] ALUOp, 
     input wire [31:0] RD1, RD2, SignExtend,

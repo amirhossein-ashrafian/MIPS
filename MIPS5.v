@@ -13,14 +13,14 @@ module MIPS5 (
     input wire clk, reset
 );
 
-// Signal Declarations
+
 
 // IF stage
 wire [31:0] PC, Instruction , PC_Plus4;
 wire [31:0] NextPC;
 PC (
     .clk(clk),
-    .stall() , // it comes from hazard detection unit
+    .stall(PC_stall),
     .reset(reset),
     .PC_IN(NextPC),
     .PC_OUT(Pc)
@@ -45,8 +45,8 @@ wire [31:0] IF_ID_PC_Plus4 ,IF_ID_Instruction ;
 IF_ID_Register (
     .clk(clk),
     .reset(reset),
-    .flush(), // it comes from "and"(ID)
-    .stall(), // it comes from hazard detection unit 
+    .flush(taken), 
+    .stall(IF_ID_stall), 
     .PC_Plus4(PC_Plus4),
     .Instruction(Instruction),
     .PC_Plus4_out(IF_ID_PC_Plus4),
@@ -57,19 +57,14 @@ IF_ID_Register (
 wire [31:0] RegData1, RegData2;
 wire [4:0] writeadr;
 wire RegWrite, MemRead, MemWrite, ALUSrc, RegDst, MemtoReg, Branch, Jump;
-MUX_2x1_5 register_destination(
-    .input0(IF_ID_Instruction[20:16]),
-    .input1(IF_ID_Instruction[15:11]),
-    .sel(), // it comes from RegDst(MEM/WB)
-    .result(writeadr)
-);
+
 
 RegisterFile(
     .clk(clk),
     .reset(reset),
     .adr1(IF_ID_Instruction[25:21]),
     .adr2(IF_ID_Instruction[20:16]),
-    .writeadr(writeadr),
+    .writeadr(MEM_WB_writeadr), // it must be complete after mem wb
     .RegWrite(RegWrite),
     .WriteData(), // it comes from MEM stage 
     .ReadData1(RegData1),
@@ -121,8 +116,8 @@ Adder branch_address_calculator(
 wire IF_ID_stall , PC_stall , ControlMux ;
 
 HazardDetectionUnit hazard_detection (
-    .ID_EX_MemRead(MemRead_From_ID_EX_To_EX_MEM),
-    .ID_EX_Rt(),
+    .ID_EX_MemRead(ID_EX_MemRead),
+    .ID_EX_Rt(ID_EX_Rt),
     .IF_ID_Rs(Instruction[25:21]),
     .IF_ID_Rt(Instruction[20:16]),
     .PC_stall(PC_stall)
@@ -135,8 +130,11 @@ ControlMux(
     .control_in(control_signals),
     .control_out(ControlMuxToRegister),
 );
-wire RegDst_From_ID_EX_To_EX_MEM, MemRead_From_ID_EX_To_EX_MEM
-wire [31:0] ID_EX_Rt
+wire ID_EX_RegDst, ID_EX_MemRead ,ID_EX_ALUSrc,ID_EX_MemWrite , ID_EX_MemToReg , ID_EX_RegWrite;
+wire [4:0] ID_EX_Rt,ID_EX_Rs,ID_EX_Rd;
+wire [5:0] ID_EX_func;
+wire [31:0] ID_EX_RD1 , ID_EX_RD2  ;
+wire [1:0] ID_EX_ALUOp ; 
 // ID/EX Register
 ID_EX_Register (
     .clk(clk),
@@ -155,22 +153,30 @@ ID_EX_Register (
     .Rt(Instruction[20:16]),
     .Rd(Instruction[15:11]),
     .funct(Instruction[5:0]),
-    .RegDst_out(RegDst_From_ID_EX_To_EX_MEM),
-    .ALUSrc_out(),
-    .MemRead_out(MemRead_From_ID_EX_To_EX_MEM),
-    .MemWrite_out(),
-    .MemToReg_out(),
-    .RegWrite_out(),
-    .ALUOp_out(),
-    .RD1_out(),
-    .RD2_out(),
+    .RegDst_out(ID_EX_RegDst),
+    .ALUSrc_out(ID_EX_ALUSrc),
+    .MemRead_out(ID_EX_MemRead),
+    .MemWrite_out(ID_EX_MemWrite),
+    .MemToReg_out(ID_EX_MemToReg),
+    .RegWrite_out(ID_EX_RegWrite),
+    .ALUOp_out(ID_EX_ALUOp),
+    .RD1_out(ID_EX_RD1),
+    .RD2_out(ID_EX_RD2),
     .SignExtend_out(),
-    .Rs_out(),
+    .Rs_out(ID_EX_Rs),
     .Rt_out(ID_EX_Rt),
-    .Rd_out(),
-    .funct_out()
+    .Rd_out(ID_EX_Rd),
+    .funct_out(ID_EX_func)
 );
 
+// EX stage 
+
+MUX_2x1_5 register_destination(
+    .input0(ID_EX_Rt),
+    .input1(ID_EX_Rd),
+    .sel(ID_EX_RegDst), 
+    .result(writeadr)
+);
 
 // ALU Control
 wire [3:0] ALUControl;
