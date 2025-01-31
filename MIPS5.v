@@ -1,22 +1,29 @@
 `include "PC.v"
 `include "InstructionMemory.v"
 `include "PCAdder.v"
-`include "MUX_2x1_5.v"
 `include "MUX_2x1_32.v"
-`include "HazardDetectionUnit.v"
-`include "ControlMux.v"
-`include "AND.v"
+`include "IF_ID_Reg.v"
+`include "RegisterFile.v"
+`include "Controller.v"
 `include "Comparator.v"
+`include "AND.v"
 `include "signExtend.v"
 `include "ShiftLeft2.v"
+`include "Adder.v"
+`include "HazardDetectionUnit.v"
+`include "ControlMux.v"
+`include "ID_EX_Reg.v"
+`include "MUX_2x1_5.v"
 `include "MUX_3x1_32.v"
-
+`include "ALUController.v"
+`include "ForwardingUnit.v"
+`include "ALU.v"
+`include "EX_MEM_Reg.v"
+`include "DataMemory.v"
+`include "MEM_WB_Reg.v"
 module MIPS5 (
     input wire clk, reset
 );
-
-
-
 // IF stage
 wire [31:0] PC, Instruction , PC_Plus4;
 wire [31:0] NextPC;
@@ -65,9 +72,9 @@ RegisterFile(
     .reset(reset),
     .adr1(IF_ID_Instruction[25:21]),
     .adr2(IF_ID_Instruction[20:16]),
-    .writeadr(MEM_WB_writeadr), // it must be complete after mem wb
-    .RegWrite(RegWrite),
-    .WriteData(), // it comes from MEM stage 
+    .writeadr(MEM_WB_Rd), 
+    .RegWrite(MEM_WB_RegWrite),
+    .WriteData(WriteData), 
     .ReadData1(RegData1),
     .ReadData2(RegData2)
 );
@@ -125,7 +132,7 @@ HazardDetectionUnit hazard_detection (
     .IF_ID_stall(IF_ID_stall)
     .ControlMux(ControlMux)
 );
-wire [8:0] ControlMuxToRegister ; 
+wire [7:0] ControlMuxToRegister ; 
 ControlMux(
     .stall(ControlMux),
     .control_in(control_signals),
@@ -187,16 +194,16 @@ MUX_2x1_32 alu_src(
 );
 wire [31:0] inputA , inputB ;
 MUX_3x1_32 A(
-    .maininput(),
-    .fw1(),
-    .fw2(),
+    .maininput(ID_EX_Rs),
+    .fw1(EX_MEM_ALUResult),
+    .fw2(MEM_WB_ALUResult),
     .sel(ForwardA),
     .result(inputA)
 );
 MUX_3x1_32 B(
-    .maininput(),
-    .fw1(),
-    .fw2(),
+    .maininput(rt_or_signExtended),
+    .fw1(EX_MEM_ALUResult),
+    .fw2(MEM_WB_ALUResult),
     .sel(ForwardB),
     .result(inputB)
 );
@@ -222,13 +229,14 @@ ForwardingUnit forwarding_unit (
     .ForwardB(ForwardB)
 );
 wire [31:0] ALUResult ; 
+wire zero , overflow ; 
 ALU alu (
     .A(inputA),
     .B(inputB),
     .ALUControl(ALUControl),
     .Result(ALUResult),
-    .Zero(Zero),
-    .Overflow(Overflow)
+    .Zero(zero),
+    .Overflow(overflow)
 );
 
 // EX/MEM Register
@@ -267,18 +275,13 @@ DataMemory data_memory (
 );
 
 // MEM/WB Register
-wire [4:0]  MEM_WriteReg;   // آدرس رجیستر مقصد در مرحله MEM
+wire        MEM_WB_RegWrite;   
+wire        MEM_WB_MemtoReg;   
+wire [31:0] MEM_WB_ALUResult;   
+wire [31:0] MEM_WB_ReadData;    
+wire [4:0]  MEM_WB_Rd;
 
-// سیگنالهای ورودی به مرحله WB
-wire        MEM_WB_RegWrite;    // به واحد کنترل در WB
-wire        MEM_WB_MemtoReg;    // به واحد کنترل در WB
-wire [31:0] MEM_WB_ALUResult;   // به فایل رجیستر در WB
-wire [31:0] MEM_WB_ReadData;    // به فایل رجیستر در WB
-wire [4:0]  MEM_WB_WriteReg;    // به فایل رجیستر در WB
-
-// --- نمونهسازی MEM_WB_Register ---
 MEM_WB_Register mem_wb_reg (
-    // پورتهای ورودی (از مرحله MEM)
     .clk(clk),
     .reset(reset),
     .RegWrite(EX_MEM_RegWrite),
@@ -287,15 +290,12 @@ MEM_WB_Register mem_wb_reg (
     .ReadData(DataMemoryOutput),
     .Rd(EX_MEM_Rd),
     
-    // پورتهای خروجی (به مرحله WB)
     .RegWrite_out(MEM_WB_RegWrite),
     .MemtoReg_out(MEM_WB_MemtoReg),
     .ALUResult_out(MEM_WB_ALUResult),
     .ReadData_out(MEM_WB_ReadData),
-    .Rd_out(MEM_WB_WriteReg)
+    .Rd_out(MEM_WB_Rd)
 );
-
-
 // WB stage
 wire [31:0] WriteData;
 MUX_2x1_32 mux2to1 (
@@ -304,5 +304,4 @@ MUX_2x1_32 mux2to1 (
     .Sel(MEM_WB_MemtoReg)
     .Out(WriteData)
 );
-
 endmodule
