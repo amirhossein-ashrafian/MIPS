@@ -133,7 +133,7 @@ ControlMux(
 wire ID_EX_RegDst, ID_EX_MemRead ,ID_EX_ALUSrc,ID_EX_MemWrite , ID_EX_MemToReg , ID_EX_RegWrite;
 wire [4:0] ID_EX_Rt,ID_EX_Rs,ID_EX_Rd;
 wire [5:0] ID_EX_func;
-wire [31:0] ID_EX_RD1 , ID_EX_RD2  ;
+wire [31:0] ID_EX_RD1 , ID_EX_RD2 ,ID_EX_SignExtended ;
 wire [1:0] ID_EX_ALUOp ; 
 // ID/EX Register
 ID_EX_Register (
@@ -162,7 +162,7 @@ ID_EX_Register (
     .ALUOp_out(ID_EX_ALUOp),
     .RD1_out(ID_EX_RD1),
     .RD2_out(ID_EX_RD2),
-    .SignExtend_out(),
+    .SignExtend_out(ID_EX_SignExtended),
     .Rs_out(ID_EX_Rs),
     .Rt_out(ID_EX_Rt),
     .Rd_out(ID_EX_Rd),
@@ -170,12 +170,18 @@ ID_EX_Register (
 );
 
 // EX stage 
-
 MUX_2x1_5 register_destination(
     .input0(ID_EX_Rt),
     .input1(ID_EX_Rd),
     .sel(ID_EX_RegDst), 
     .result(writeadr)
+);
+wire [31:0] rt_or_signExtended ; 
+MUX_2x1_32 alu_src(
+    .input0(ID_EX_Rt),
+    .input1(ID_EX_SignExtended),
+    .sel(ID_EX_ALUSrc),
+    .result(rt_or_signExtended)
 );
 
 // ALU Control
