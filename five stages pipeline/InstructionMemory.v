@@ -3,7 +3,7 @@ module InstructionMemory (
     input wire [31:0] PC,       
     output reg [31:0] instruction    
 );
-    reg [31:0] mem [0:63];
+    reg [31:0] mem [0:1];
 
     initial begin
         // دستور 1: ori $t0, $0, 6

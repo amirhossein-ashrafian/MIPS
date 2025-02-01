@@ -4,12 +4,13 @@ module DataMemory (
     output reg [31:0] ReadData
 );
 
-    reg [31:0] memory [0:255]; // 256 words (1024 bytes)
+    reg [31:0] memory [0:1023]; // 256 words (1024 bytes)
 
     initial begin
         memory[0] = 32'h00000000 ;
-        memory[4] = 32'h00000001 ;
-        for (integer i = 8 ; i < 255 ; i+=4)begin
+        memory[1] = 32'h00000001 ;
+        for (integer i = 2 ; i < 255 ; i++)
+        begin
             memory[i] = 32'h0 ; 
         end
     end
