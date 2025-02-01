@@ -6,6 +6,10 @@ module DataMemory (
 
     reg [31:0] memory [0:255]; // 256 words (1024 bytes)
 
+    initial begin
+        memory[0] = 32'h00000000 ;
+        memory[4] = 32'h00000001 ;
+    end
     always @(posedge clk) begin
         if (MemWrite) 
             memory[Address[31:2]] <= WriteData; // Writing data to memory

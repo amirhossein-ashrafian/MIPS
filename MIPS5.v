@@ -1,4 +1,4 @@
-`include "PC.v"
+`include "PC_Register.v"
 `include "InstructionMemory.v"
 `include "PCAdder.v"
 `include "MUX_2x1_32.v"
@@ -27,23 +27,23 @@ module MIPS5 (
 // IF stage
 wire [31:0] PC, Instruction , PC_Plus4;
 wire [31:0] NextPC;
-PC (
+PC_Register pc(
     .clk(clk),
     .stall(PC_stall),
     .reset(reset),
     .PC_IN(NextPC),
-    .PC_OUT(Pc)
+    .PC_OUT(PC)
 );
-InstructionMemory (
+InstructionMemory instruction_memory(
     .clk(clk),
     .PC(PC),
     .instruction(Instruction)
 );
-PCAdder (
+PCAdder pc_adder(
     .PC_in(PC),
     .PC_out(PC_Plus4)
 );
-MUX_2x1_32(
+MUX_2x1_32 mux_2x1_32(
     .input0(PC_Plus4),
     .input1(Branch_Address),
     .sel(taken), 
@@ -51,7 +51,7 @@ MUX_2x1_32(
 );
 // IF/ID Register
 wire [31:0] IF_ID_PC_Plus4 ,IF_ID_Instruction ;
-IF_ID_Register (
+IF_ID_Register if_id_register(
     .clk(clk),
     .reset(reset),
     .flush(taken), 
@@ -64,10 +64,10 @@ IF_ID_Register (
 
 // ID stage
 wire [31:0] RegData1, RegData2;
-wire RegWrite, MemRead, MemWrite, ALUSrc, RegDst, MemtoReg, Branch, Jump;
+// wire RegWrite, MemRead, MemWrite, ALUSrc, RegDst, MemtoReg, Jump;
 
 
-RegisterFile(
+RegisterFile register_file(
     .clk(clk),
     .reset(reset),
     .adr1(IF_ID_Instruction[25:21]),
@@ -80,8 +80,8 @@ RegisterFile(
 );
 wire [7:0] control_signals ; 
 wire Branch ; 
-Controller(
-    .opcode(Instruction[31:27]),
+Controller controller(
+    .opcode(Instruction[31:26]),
     .RegDst(control_signals[7]),
     .ALUSrc(control_signals[6]),
     .MemToReg(control_signals[5]),
@@ -104,17 +104,17 @@ AND Branch_result(
     .result(taken)
 );
 
-wire [31:0] signExtended
-signExtend (
+wire [31:0] signExtended;
+SignExtend sign_extend(
     .in(Instruction[15:0]),
     .out(signExtended)
 );
-wire [31:0] signExtended_shiftleft2
-ShiftLeft2(
+wire [31:0] signExtended_shiftleft2;
+ShiftLeft2 shift_left_2(
     .in(signExtended),
     .out(signExtended_shiftleft2)
 );
-wire [31:0] Branch_Address
+wire [31:0] Branch_Address;
 Adder branch_address_calculator(
     .input1(IF_ID_PC_Plus4),
     .input2(signExtended_shiftleft2),
@@ -133,7 +133,7 @@ HazardDetectionUnit hazard_detection (
     .ControlMux(ControlMux)
 );
 wire [7:0] ControlMuxToRegister ; 
-ControlMux(
+ControlMux control_mux(
     .stall(ControlMux),
     .control_in(control_signals),
     .control_out(ControlMuxToRegister)
@@ -144,7 +144,7 @@ wire [5:0] ID_EX_func;
 wire [31:0] ID_EX_RD1 , ID_EX_RD2 ,ID_EX_SignExtended ;
 wire [1:0] ID_EX_ALUOp ; 
 // ID/EX Register
-ID_EX_Register (
+ID_EX_Register id_ex_register(
     .clk(clk),
     .reset(reset),
     .RegDst(control_signals[7]),
@@ -187,14 +187,14 @@ MUX_2x1_5 register_destination(
 );
 wire [31:0] rt_or_signExtended ; 
 MUX_2x1_32 alu_src(
-    .input0(ID_EX_Rt),
+    .input0(ID_EX_RD2),
     .input1(ID_EX_SignExtended),
     .sel(ID_EX_ALUSrc),
     .result(rt_or_signExtended)
 );
 wire [31:0] inputA , inputB ;
 MUX_3x1_32 A(
-    .maininput(ID_EX_Rs),
+    .maininput(ID_EX_RD1),
     .fw1(EX_MEM_ALUResult),
     .fw2(MEM_WB_ALUResult),
     .sel(ForwardA),
@@ -211,7 +211,7 @@ MUX_3x1_32 B(
 wire [3:0] ALUControl;
 ALUControl alu_control (
     .ALUOp(ID_EX_ALUOp),
-    .FunctionCode(ID_EX_func),
+    .Funct(ID_EX_func),
     .ALUControl(ALUControl)
 );
 
@@ -248,7 +248,7 @@ EX_MEM_Register EX_MEM_reg (
     .reset(reset),
     .MemRead(ID_EX_MemRead),
     .MemWrite(ID_EX_MemWrite),
-    .MemtoReg(ID_EX_MemtoReg),
+    .MemToReg(ID_EX_MemtoReg),
     .RegWrite(ID_EX_RegWrite),
     .ALUResult(ALUResult),
     .RD2(ID_EX_RD2),
@@ -256,22 +256,22 @@ EX_MEM_Register EX_MEM_reg (
 
     .MemRead_out(EX_MEM_MemRead),
     .MemWrite_out(EX_MEM_MemWrite),
-    .MemtoReg_out(EX_MEM_MemtoReg),
+    .MemToReg_out(EX_MEM_MemtoReg),
     .RegWrite_out(EX_MEM_RegWrite),
     .ALUResult_out(EX_MEM_ALUResult),
     .RD2_out(EX_MEM_RD2),
-    .Rd_out(EX_MEM_Rd),
+    .Rd_out(EX_MEM_Rd)
 );
 
 // MEM stage
 wire [31:0] DataMemoryOutput;
 DataMemory data_memory (
     .clk(clk),
-    .address(EX_MEM_ALUResult),
-    .write_data(EX_MEM_RD2),
+    .Address(EX_MEM_ALUResult),
+    .WriteData(EX_MEM_RD2),
     .MemRead(EX_MEM_MemRead),
     .MemWrite(EX_MEM_MemWrite),
-    .read_data(DataMemoryOutput)
+    .ReadData(DataMemoryOutput)
 );
 
 // MEM/WB Register
@@ -299,9 +299,9 @@ MEM_WB_Register mem_wb_reg (
 // WB stage
 wire [31:0] WriteData;
 MUX_2x1_32 mux2to1 (
-    .A(MEM_WB_ALUResult),
-    .B(MEM_WB_ReadData),
-    .Sel(MEM_WB_MemtoReg),
-    .Out(WriteData)
+    .input0(MEM_WB_ALUResult),
+    .input1(MEM_WB_ReadData),
+    .sel(MEM_WB_MemtoReg),
+    .result(WriteData)
 );
 endmodule
