@@ -81,7 +81,7 @@ RegisterFile register_file(
 wire [7:0] control_signals ; 
 wire Branch ; 
 Controller controller(
-    .opcode(Instruction[31:26]),
+    .opcode(IF_ID_Instruction[31:26]),
     .RegDst(control_signals[7]),
     .ALUSrc(control_signals[6]),
     .MemToReg(control_signals[5]),
@@ -106,7 +106,7 @@ AND Branch_result(
 
 wire [31:0] signExtended;
 SignExtend sign_extend(
-    .in(Instruction[15:0]),
+    .in(IF_ID_Instruction[15:0]),
     .out(signExtended)
 );
 wire [31:0] signExtended_shiftleft2;
@@ -126,8 +126,8 @@ wire IF_ID_stall , PC_stall , ControlMux ;
 HazardDetectionUnit hazard_detection (
     .ID_EX_MemRead(ID_EX_MemRead),
     .ID_EX_Rt(ID_EX_Rt),
-    .IF_ID_Rs(Instruction[25:21]),
-    .IF_ID_Rt(Instruction[20:16]),
+    .IF_ID_Rs(IF_ID_Instruction[25:21]),
+    .IF_ID_Rt(IF_ID_Instruction[20:16]),
     .PC_stall(PC_stall),
     .IF_ID_stall(IF_ID_stall),
     .ControlMux(ControlMux)
@@ -147,20 +147,20 @@ wire [1:0] ID_EX_ALUOp ;
 ID_EX_Register id_ex_register(
     .clk(clk),
     .reset(reset),
-    .RegDst(control_signals[7]),
-    .ALUSrc(control_signals[6]),
-    .MemToReg(control_signals[5]),
-    .RegWrite(control_signals[4]),
-    .MemRead(control_signals[3]),
-    .MemWrite(control_signals[2]),
-    .ALUOp(control_signals[1:0]),
+    .RegDst(ControlMuxToRegister[7]),
+    .ALUSrc(ControlMuxToRegister[6]),
+    .MemToReg(ControlMuxToRegister[5]),
+    .RegWrite(ControlMuxToRegister[4]),
+    .MemRead(ControlMuxToRegister[3]),
+    .MemWrite(ControlMuxToRegister[2]),
+    .ALUOp(ControlMuxToRegister[1:0]),
     .RD1(RegData1),
     .RD2(RegData2),
     .SignExtend(signExtended),
-    .Rs(Instruction[25:21]),
-    .Rt(Instruction[20:16]),
-    .Rd(Instruction[15:11]),
-    .funct(Instruction[5:0]),
+    .Rs(IF_ID_Instruction[25:21]),
+    .Rt(IF_ID_Instruction[20:16]),
+    .Rd(IF_ID_Instruction[15:11]),
+    .funct(IF_ID_Instruction[5:0]),
     .RegDst_out(ID_EX_RegDst),
     .ALUSrc_out(ID_EX_ALUSrc),
     .MemRead_out(ID_EX_MemRead),
@@ -185,27 +185,28 @@ MUX_2x1_5 register_destination(
     .sel(ID_EX_RegDst), 
     .result(writeadr)
 );
-wire [31:0] rt_or_signExtended ; 
+wire [31:0] rt_or_signExtended;
 MUX_2x1_32 alu_src(
-    .input0(ID_EX_RD2),
+    .input0(forwarded_RD2),  // استفاده از RD2 فوروارد شده
     .input1(ID_EX_SignExtended),
     .sel(ID_EX_ALUSrc),
     .result(rt_or_signExtended)
 );
-wire [31:0] inputA , inputB ;
+wire [31:0] inputA;
 MUX_3x1_32 A(
     .maininput(ID_EX_RD1),
     .fw1(EX_MEM_ALUResult),
-    .fw2(MEM_WB_ALUResult),
+    .fw2(WriteData),  // مقدار از مرحله WB
     .sel(ForwardA),
     .result(inputA)
 );
-MUX_3x1_32 B(
-    .maininput(rt_or_signExtended),
+wire [31:0] forwarded_RD2;
+MUX_3x1_32 B_forwarding (
+    .maininput(ID_EX_RD2),
     .fw1(EX_MEM_ALUResult),
-    .fw2(MEM_WB_ALUResult),
+    .fw2(WriteData),  // مقدار از مرحله WB
     .sel(ForwardB),
-    .result(inputB)
+    .result(forwarded_RD2)
 );
 // ALU Control
 wire [3:0] ALUControl;
@@ -228,11 +229,11 @@ ForwardingUnit forwarding_unit (
     .ForwardA(ForwardA),
     .ForwardB(ForwardB)
 );
-wire [31:0] ALUResult ; 
-wire zero , overflow ; 
+wire [31:0] ALUResult;
+wire zero, overflow;
 ALU alu (
     .A(inputA),
-    .B(inputB),
+    .B(rt_or_signExtended),  // حالا inputB شامل RD2 فوروارد شده یا Immediate است
     .ALUControl(ALUControl),
     .Result(ALUResult),
     .Zero(zero),

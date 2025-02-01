@@ -9,6 +9,9 @@ module DataMemory (
     initial begin
         memory[0] = 32'h00000000 ;
         memory[4] = 32'h00000001 ;
+        for (integer i = 8 ; i < 255 ; i+=4)begin
+            memory[i] = 32'h0 ; 
+        end
     end
     always @(posedge clk) begin
         if (MemWrite) 
