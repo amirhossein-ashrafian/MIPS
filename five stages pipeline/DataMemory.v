@@ -4,7 +4,7 @@ module DataMemory (
     output reg [31:0] ReadData
 );
 
-    reg [31:0] memory [0:1023]; // 256 words (1024 bytes)
+    reg [31:0] memory [0:1023]; // 1024 words
 
     initial begin
         memory[0] = 32'h0 ;

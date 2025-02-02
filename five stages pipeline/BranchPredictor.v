@@ -18,8 +18,9 @@ module BranchPredictor (
     // به‌روزرسانی جدول پیش‌بینی و مقداردهی اولیه
     always @(posedge clk or posedge reset) begin
         if (reset) begin
-            // مقداردهی اولیه تمامی سطرها به حالت 01 (ضعیف غیرتیرش)
-            for (i = 0; i < 1024; i = i + 1) begin
+            // مقداردهی اولیه تمامی سطرها به حالت 01 (یعنی نات تیکن ضعیف)
+            for (i = 0; i < 1024; i = i + 1) 
+            begin
                 predictor_table[i] <= 2'b01;
             end
         end else if (update) begin

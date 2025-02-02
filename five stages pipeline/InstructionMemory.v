@@ -6,6 +6,9 @@ module InstructionMemory (
     reg [31:0] mem [0:25]; // 26 دستورالعمل
 
     initial begin
+
+        // برنامه فیبوناچی 
+
     // دستور lw $0, 0($0)
     mem[0] = 32'b100011_00000_00000_0000000000000000; // opcode:100011 (lw), rs:00000 ($0), rt:00000 ($0), offset:0x0000
     
@@ -80,6 +83,6 @@ module InstructionMemory (
     end
 
     always @(posedge clk) begin
-        instruction <= mem[PC[31:2]]; // دسترسی به حافظه دستور
+        instruction <= mem[PC[31:2]];
     end
 endmodule

@@ -1,9 +1,9 @@
 module ALU (
-    input wire [31:0] A, B,       // دو ورودی 32 بیتی
-    input wire [3:0] ALUControl,  // سیگنال کنترلی ALU
-    output reg [31:0] Result,     // خروجی 32 بیتی ALU
-    output reg Zero,              // پرچم Zero
-    output reg Overflow           // پرچم Overflow برای ADD/SUB
+    input wire [31:0] A, B,       
+    input wire [3:0] ALUControl,  
+    output reg [31:0] Result,    
+    output reg Zero,            // zero flag 
+    output reg Overflow         // overflow flag 
 );
 
     reg signed [31:0] signed_A, signed_B, signed_Result;
@@ -31,7 +31,7 @@ module ALU (
             default: Result = 32'b0;
         endcase
 
-        // مقدار پرچم Zero اگر خروجی صفر باشد، 1 می‌شود.
+        // if result==0 then zero = 1 
         Zero = (Result == 32'b0) ? 1 : 0;
     end
 

@@ -1,7 +1,7 @@
 module Controller (
-    input wire [5:0] opcode,     // Opcode از دستورالعمل
+    input wire [5:0] opcode,     
     output reg RegDst, ALUSrc, MemToReg, RegWrite, MemRead, MemWrite, Branch,ZeroExtend,
-    output reg [1:0] ALUOp       // سیگنال کنترلی برای ALU
+    output reg [1:0] ALUOp       
 );
 
     always @(*) begin
@@ -59,7 +59,7 @@ module Controller (
                 MemRead  = 0;
                 MemWrite = 0;
                 Branch   = 0;
-                ALUOp    = 2'b11;  // کد جدید برای ORI
+                ALUOp    = 2'b11;  
             end
             default: begin // دستورالعمل نامعتبر
                 ZeroExtend = 1'b0;

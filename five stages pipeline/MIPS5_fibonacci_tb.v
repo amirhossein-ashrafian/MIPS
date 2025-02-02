@@ -6,7 +6,7 @@ module MIPS5_tb;
     
     MIPS5 dut ( .clk(clk), .reset(reset) );
     
-    always #5 clk = ~clk; // کلاک 50MHz
+    always #5 clk = ~clk; // 100 MG Hz
     
     initial begin
         $dumpfile("mips5_wave3.vcd");
@@ -19,12 +19,12 @@ module MIPS5_tb;
         #600; // زمان کافی برای اجرای تمام دستورات
         
         // چاپ مقادیر رجیسترها
-        $display("\n📥 Registers:");
+        $display("\nRegisters:");
         for (integer i = 0; i < 12; i++) 
             $display("$%0d = %d", i, dut.register_file.registers[i]);
         
         // چاپ مقادیر حافظه
-        $display("\n📦 Memory:");
+        $display("\nMemory:");
         for (integer i = 0; i < 12; i++) 
             $display("Memory[%0d] = %d", i, dut.data_memory.memory[i]);
         

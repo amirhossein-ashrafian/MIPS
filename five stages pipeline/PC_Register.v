@@ -8,8 +8,8 @@ module PC_Register(
 always @(posedge clk or posedge reset) begin
     if (reset)
         PC_OUT <= 32'h0000;
-    else if (!stall)
+    else if (!stall) // در صورت فعال بودن سیگنال استال ، مقدار قبلی پی سی باقی میماند و مقدار پی سی تغییر نمیکند
         PC_OUT <= PC_IN;
-    // در صورت stall، مقدار قبلی حفظ می‌شود.
+    
 end
 endmodule
