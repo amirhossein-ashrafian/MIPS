@@ -5,7 +5,7 @@ module MUX_2x1_5(
     output reg [4:0] result  
 );
 
-always @(input0 , input1 , sel)begin
+always @(*)begin
     case(sel)
         1'b0:
             begin

@@ -1,4 +1,4 @@
-module PC (
+module PC_Register(
     input wire clk, 
     input wire reset,
     input wire stall,
