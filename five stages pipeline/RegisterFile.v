@@ -13,8 +13,8 @@ module RegisterFile(
     
     initial 
     begin 
-        registers[0] = 32'h0 ; 
-        registers[1] = 32'h0 ; 
+        registers[0] = 32'h00000000 ; 
+        registers[1] = 32'h00000001 ; 
         registers[2] = 32'h0 ; 
         registers[3] = 32'h0 ; 
         registers[4] = 32'h0 ; 
@@ -49,8 +49,8 @@ module RegisterFile(
     end
     
     always @(*) begin
-        ReadData1 = registers[adr1];
-        ReadData2 = registers[adr2];
+        ReadData2 <= registers[adr2];
+        ReadData1 <= registers[adr1];
     end
     
     always @(negedge clk) begin

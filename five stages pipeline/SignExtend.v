@@ -1,16 +1,12 @@
 module SignExtend (
     input [15:0] in,
+    input ZeroExtend,  // New control signal
     output reg [31:0] out
 );
-always @(in) begin
-    if (in[15] == 1)  begin     
-        out = {16'hffff, in};
-    end
-    else if (in[15] == 0) begin
-         out = {16'h0000, in};
-    end
-    else begin
-        out = 32'hxxxx_xxxx;
-    end
+always @(*) begin
+    if (ZeroExtend)
+        out = {16'h0000, in};  // Zero-extension for ORI
+    else
+        out = { {16{in[15]}}, in };  // Sign-extension for others
 end
 endmodule

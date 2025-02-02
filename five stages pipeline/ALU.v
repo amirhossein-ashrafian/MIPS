@@ -26,7 +26,7 @@ module ALU (
                 Result = signed_Result;
                 Overflow = ((signed_A[31] != signed_B[31]) && (signed_A[31] != signed_Result[31]));
             end
-            4'b0111: Result = (A < B) ? 32'b1 : 32'b0; // SLT
+            4'b0111: Result = (signed_A < signed_B) ? 32'b1 : 32'b0; // SLT (signed)
             4'b1100: Result = ~(A | B); // NOR
             default: Result = 32'b0;
         endcase

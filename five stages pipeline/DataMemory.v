@@ -7,7 +7,7 @@ module DataMemory (
     reg [31:0] memory [0:1023]; // 256 words (1024 bytes)
 
     initial begin
-        memory[0] = 32'h00000000 ;
+        memory[0] = 32'h0 ;
         memory[1] = 32'h00000001 ;
         for (integer i = 2 ; i < 255 ; i++)
         begin
