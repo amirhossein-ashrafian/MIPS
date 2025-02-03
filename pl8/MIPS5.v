@@ -1,4 +1,4 @@
-`include "PC.v"
+`include "PC_Register.v"
 `include "InstructionMemory.v"
 `include "PCAdder.v"
 `include "MUX_2x1_32.v"
@@ -19,8 +19,7 @@
 `include "ForwardingUnit.v"
 `include "ALU.v"
 `include "EX_MEM_Reg.v"
-`include "DataMemoryWrite.v"
-`include "DataMemoryRead.v"
+`include "DataMemory.v"
 `include "MEM_WB_Reg.v"
 `include "Registers.v"
 
@@ -30,7 +29,7 @@ module MIPS5 (
 // IF stage
 wire [31:0] PC, Instruction , PC_Plus4;
 wire [31:0] NextPC;
-PC pc(
+PC_Register pc(
     .clk(clk),
     .stall(PC_stall),
     .reset(reset),
@@ -46,7 +45,7 @@ PCAdder pc_adder(
     .PC_in(PC),
     .PC_out(PC_Plus4)
 );
-MUX_2x1_32 mus_2x1_32(
+MUX_2x1_32 mux_2x1_32(
     .input0(PC_Plus4),
     .input1(Branch_Address),
     .sel(taken), 
@@ -67,7 +66,6 @@ IF_ID_Register if_id_register(
 
 // ID stage
 wire [31:0] RegData1, RegData2;
-wire RegWrite, MemRead, MemWrite, ALUSrc, RegDst, MemtoReg, Branch, Jump;
 
 
 RegisterFile register_file(
@@ -77,21 +75,23 @@ RegisterFile register_file(
     .adr2(IF_ID_Instruction[20:16]),
     .writeadr(MEM_WB_Rd), 
     .RegWrite(MEM_WB_RegWrite),
-    .WriteData(WriteData), 
+    .WriteData(WriteData_f), 
     .ReadData1(RegData1),
     .ReadData2(RegData2)
 );
 wire [7:0] control_signals ; 
+wire Branch , ZeroExtend ; 
 Controller controller(
-    .opcode(Instruction[31:26]),
+    .opcode(IF_ID_Instruction[31:26]),
     .RegDst(control_signals[7]),
     .ALUSrc(control_signals[6]),
-    .MemtoReg(control_signals[5]),
+    .MemToReg(control_signals[5]),
     .RegWrite(control_signals[4]),
     .MemRead(control_signals[3]),
     .MemWrite(control_signals[2]),
     .Branch(Branch),
-    .ALUOp(control_signals[1:0])
+    .ALUOp(control_signals[1:0]),
+    .ZeroExtend(ZeroExtend)
 );
 wire equal ; 
 Comparator rs_rt_comparator(
@@ -108,12 +108,12 @@ AND Branch_result(
 
 wire [31:0] signExtended;
 SignExtend sign_extend(
-    .in(Instruction[15:0]),
-    .out(signExtended)
+    .in(IF_ID_Instruction[15:0]),
+    .out(signExtended),
+    .ZeroExtend(ZeroExtend)
 );
-
 wire [31:0] signExtended_shiftleft2;
-ShiftLeft2 shift_left2(
+ShiftLeft2 shift_left_2(
     .in(signExtended),
     .out(signExtended_shiftleft2)
 );
@@ -129,8 +129,8 @@ wire IF_ID_stall , PC_stall , ControlMux ;
 HazardDetectionUnit hazard_detection (
     .ID_EX_MemRead(ID_EX_MemRead),
     .ID_EX_Rt(ID_EX_Rt),
-    .IF_ID_Rs(Instruction[25:21]),
-    .IF_ID_Rt(Instruction[20:16]),
+    .IF_ID_Rs(IF_ID_Instruction[25:21]),
+    .IF_ID_Rt(IF_ID_Instruction[20:16]),
     .PC_stall(PC_stall),
     .IF_ID_stall(IF_ID_stall),
     .ControlMux(ControlMux)
@@ -150,20 +150,22 @@ wire [1:0] ID_EX_ALUOp ;
 ID_EX_Register id_ex_register(
     .clk(clk),
     .reset(reset),
-    .RegDst(control_signals[7]),
-    .ALUSrc(control_signals[6]),
-    .MemToReg(control_signals[5]),
-    .RegWrite(control_signals[4]),
-    .MemRead(control_signals[3]),
-    .MemWrite(control_signals[2]),
-    .ALUOp(control_signals[1:0]),
+    .RegDst(ControlMuxToRegister[7]),
+    .ALUSrc(ControlMuxToRegister[6]),
+    .MemToReg(ControlMuxToRegister[5]),
+    .RegWrite(ControlMuxToRegister[4]),
+    .MemRead(ControlMuxToRegister[3]),
+    .MemWrite(ControlMuxToRegister[2]),
+    .ALUOp(ControlMuxToRegister[1:0]),
     .RD1(RegData1),
     .RD2(RegData2),
     .SignExtend(signExtended),
-    .Rs(Instruction[25:21]),
-    .Rt(Instruction[20:16]),
-    .Rd(Instruction[15:11]),
-    .funct(Instruction[5:0]),
+    .Rs(IF_ID_Instruction[25:21]),
+    .Rt(IF_ID_Instruction[20:16]),
+    .Rd(IF_ID_Instruction[15:11]),
+    .funct(IF_ID_Instruction[5:0]),
+    //
+    //
     .RegDst_out(ID_EX_RegDst),
     .ALUSrc_out(ID_EX_ALUSrc),
     .MemRead_out(ID_EX_MemRead),
@@ -188,27 +190,28 @@ MUX_2x1_5 register_destination(
     .sel(ID_EX_RegDst), 
     .result(writeadr)
 );
-wire [31:0] rt_or_signExtended ; 
+wire [31:0] rt_or_signExtended;
 MUX_2x1_32 alu_src(
-    .input0(ID_EX_Rt),
+    .input0(forwarded_RD2),  // استفاده از RD2 فوروارد شده
     .input1(ID_EX_SignExtended),
     .sel(ID_EX_ALUSrc),
     .result(rt_or_signExtended)
 );
-wire [31:0] inputA , inputB ;
+wire [31:0] inputA;
 MUX_3x1_32 A(
-    .maininput(ID_EX_Rs),
+    .maininput(ID_EX_RD1),
     .fw1(EX_MEM_ALUResult),
-    .fw2(MEM_WB_ALUResult),
+    .fw2(WriteData_f),  // مقدار از مرحله WB
     .sel(ForwardA),
     .result(inputA)
 );
-MUX_3x1_32 B(
-    .maininput(rt_or_signExtended),
+wire [31:0] forwarded_RD2;
+MUX_3x1_32 B_forwarding (
+    .maininput(ID_EX_RD2),
     .fw1(EX_MEM_ALUResult),
-    .fw2(MEM_WB_ALUResult),
+    .fw2(WriteData_f),  // مقدار از مرحله WB
     .sel(ForwardB),
-    .result(inputB)
+    .result(forwarded_RD2)
 );
 // ALU Control
 wire [3:0] ALUControl;
@@ -231,11 +234,11 @@ ForwardingUnit forwarding_unit (
     .ForwardA(ForwardA),
     .ForwardB(ForwardB)
 );
-wire [31:0] ALUResult ; 
-wire zero , overflow ; 
+wire [31:0] ALUResult;
+wire zero, overflow;
 ALU alu (
     .A(inputA),
-    .B(inputB),
+    .B(rt_or_signExtended),  // حالا inputB شامل RD2 فوروارد شده یا Immediate است
     .ALUControl(ALUControl),
     .Result(ALUResult),
     .Zero(zero),
@@ -245,13 +248,13 @@ ALU alu (
 // EX/MEM Register
 wire [31:0] EX_MEM_ALUResult ,EX_MEM_RD2 ;
 wire [4:0] EX_MEM_Rd ; 
-wire EX_MEM_MemRead , EX_MEM_MemWrite , EX_MEM_MemtoReg , EX_MEM_RegWrite ; 
+wire EX_MEM_MemRead , EX_MEM_MemWrite , EX_MEM_MemToReg , EX_MEM_RegWrite ; 
 EX_MEM_Register EX_MEM_reg (
     .clk(clk),
     .reset(reset),
     .MemRead(ID_EX_MemRead),
     .MemWrite(ID_EX_MemWrite),
-    .MemToReg(ID_EX_MemtoReg),
+    .MemToReg(ID_EX_MemToReg),
     .RegWrite(ID_EX_RegWrite),
     .ALUResult(ALUResult),
     .RD2(ID_EX_RD2),
@@ -259,70 +262,59 @@ EX_MEM_Register EX_MEM_reg (
 
     .MemRead_out(EX_MEM_MemRead),
     .MemWrite_out(EX_MEM_MemWrite),
-    .MemToReg_out(EX_MEM_MemtoReg),
+    .MemToReg_out(EX_MEM_MemToReg),
     .RegWrite_out(EX_MEM_RegWrite),
     .ALUResult_out(EX_MEM_ALUResult),
     .RD2_out(EX_MEM_RD2),
     .Rd_out(EX_MEM_Rd)
 );
 
+/*
 // MEM stage
 wire [31:0] DataMemoryOutput;
-/*
 DataMemory data_memory (
     .clk(clk),
-    .address(EX_MEM_ALUResult),
-    .write_data(EX_MEM_RD2),
+    .Address(EX_MEM_ALUResult),
+    .WriteData(EX_MEM_RD2),
     .MemRead(EX_MEM_MemRead),
     .MemWrite(EX_MEM_MemWrite),
-    .read_data(DataMemoryOutput)
+    .ReadData(DataMemoryOutput)
 );
 */
 
-DataMemoryRead data_memory_read(
-    .clk(clk),
-    .Address(EX_MEM_ALUResult),
-    .ReadData(DataMemoryOutput)
-);
+wire [31:0] ac_mr_addr;
+wire [31:0] ac_mr_wdata;
+wire ac_mr_memwrite;
 
-// MR/MW Register
-wire [31:0] MR_MW_Write_Data, MR_MW_Write_Address, MR_MW_Read_Data;
-wire [4:0] MR_MW_Rd;
-wire MR_MW_RegWrite, MR_MW_MemToReg, MR_MW_MemWrite;
-
-MR_MW_Register mr_mw_register(
+AC_MR_Register ac_mr_reg(
     .clk(clk),
     .reset(reset),
-    .RegWrite(EX_MEM_RegWrite),
-    .MemToReg(EX_MEM_MemtoReg),
-    .Write_Data(EX_MEM_RD2),
-    .Write_Address(EX_MEM_ALUResult),
-    .Rd(EX_MEM_Rd),
-    .MemWrite(EX_MEM_MemWrite),
-    .RegWrite_out(MR_MW_RegWrite),
-    .MemToReg_out(MR_MW_MemToReg),
-    .MemWrite_out(MR_MW_MemWrite),
-    .Rd_out(MR_MW_Rd),
-    .Write_Data_out(MR_MW_Write_Data),
-    .Write_Address_out(MR_MW_Write_Address),
-    .Read_Data_out(MR_MW_Read_Data)
+    .addr_in(EX_MEM_ALUResult),
+    .write_data_in(EX_MEM_RD2),
+    .mem_write_in(EX_MEM_MemWrite),
+    .addr_out(ac_mr_addr),
+    .write_data_out(ac_mr_wdata),
+    .mem_write_out(ac_mr_memwrite)
 );
 
-// MW stage
+// MR-MC Memory Access
+wire [31:0] mr_mc_rdata;
+wire mr_mc_memready;
 
-wire [31:0] MW_Read_Data;
-DataMemoryWrite data_memory_write(
+StagedMemory memory(
     .clk(clk),
-    .WriteData(MR_MW_Write_Data),
-    .Address(MR_MW_Write_Address),
-    .ReadDataAddress(EX_MEM_ALUResult),
-    .MemRead(EX_MEM_MemRead),
-    .ReadDataOutput(MW_Read_Data)
+    .reset(reset),
+    .addr_in(ac_mr_addr),
+    .write_data_in(ac_mr_wdata),
+    .mem_write_in(ac_mr_memwrite),
+    .read_data_out(mr_mc_rdata),
+    .mem_ready(mr_mc_memready),
+    .write_done()  // Optional for writes
 );
 
 // MEM/WB Register
 wire        MEM_WB_RegWrite;   
-wire        MEM_WB_MemtoReg;   
+wire        MEM_WB_MemToReg;   
 wire [31:0] MEM_WB_ALUResult;   
 wire [31:0] MEM_WB_ReadData;    
 wire [4:0]  MEM_WB_Rd;
@@ -330,46 +322,25 @@ wire [4:0]  MEM_WB_Rd;
 MEM_WB_Register mem_wb_reg (
     .clk(clk),
     .reset(reset),
-    .RegWrite(MR_MW_RegWrite),
-    .MemtoReg(MR_MW_MemToReg),
-    .ALUResult(MR_MW_Write_Address),
-    .ReadData(MW_Read_Data),
-    .Rd(MR_MW_Rd),
+    .RegWrite(EX_MEM_RegWrite),
+    .MemtoReg(EX_MEM_MemToReg),
+    .ALUResult(EX_MEM_ALUResult),
+    .ReadData(mr_mc_rdata),
+    .Rd(EX_MEM_Rd),
+    .ready(mr_mc_memready),
     
     .RegWrite_out(MEM_WB_RegWrite),
-    .MemtoReg_out(MEM_WB_MemtoReg),
+    .MemtoReg_out(MEM_WB_MemToReg),
     .ALUResult_out(MEM_WB_ALUResult),
     .ReadData_out(MEM_WB_ReadData),
     .Rd_out(MEM_WB_Rd)
 );
 // WB stage
-wire [31:0] WriteData;
+wire [31:0] WriteData_f;
 MUX_2x1_32 mux2to1 (
     .input0(MEM_WB_ALUResult),
     .input1(MEM_WB_ReadData),
-    .sel(MEM_WB_MemtoReg),
-    .result(WriteData)
+    .sel(MEM_WB_MemToReg),
+    .result(WriteData_f)
 );
-endmodule
-
-module tb;
-    reg clk, reset;
-
-    MIPS5 uut(
-        .clk(clk),
-        .reset(reset)
-    );
-    
-    always #5 clk = ~clk;
-
-    initial begin
-        clk = 0;
-        reset = 1;
-        #20;
-        reset = 0;
-        #600;
-        
-        $finish;
-    end
-
 endmodule

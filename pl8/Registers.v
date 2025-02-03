@@ -115,3 +115,27 @@ module MR_MW_Register(
         end
     end
 endmodule
+
+module AC_MR_Register(
+    input clk, reset,
+    // From Address Calculation (AC)
+    input [31:0] addr_in,
+    input [31:0] write_data_in,
+    input mem_write_in,
+    // To Memory Request (MR)
+    output reg [31:0] addr_out,
+    output reg [31:0] write_data_out,
+    output reg mem_write_out
+);
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            addr_out <= 0;
+            write_data_out <= 0;
+            mem_write_out <= 0;
+        end else begin
+            addr_out <= addr_in;
+            write_data_out <= write_data_in;
+            mem_write_out <= mem_write_in;
+        end
+    end
+endmodule

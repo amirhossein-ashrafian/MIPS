@@ -1,10 +1,10 @@
 module ForwardingUnit (
     input wire [4:0] ID_EX_Rs, ID_EX_Rt, EX_MEM_Rd, MEM_WB_Rd,
     input wire ID_EX_RegWrite, EX_MEM_RegWrite, MEM_WB_RegWrite,
+    input wire [4:0] EX_MR_Rd, PR_ID_Rs, PR_ID_Rt,
+    input EX_MR_MemRead,
     output reg [1:0] ForwardA, ForwardB,
     // new inputs
-    input reg [4:0] EX_MR_Rd, ID_EX_Rs, ID_EX_Rt, PR_ID_Rs, PR_ID_Rt,
-    input EX_MR_MemRead,
     output reg Forward_MR_to_EX_1, Forward_MR_to_EX_2, Forward_MR_to_ID_1, Forward_MR_to_ID_2
 );
 
